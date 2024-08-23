@@ -67,7 +67,7 @@ void terminal_initialize(void)
 {
 	terminal_row = 0;
 	terminal_column = 0;
-	terminal_color = vga_entry_color(VGA_COLOR_BLACK, VGA_COLOR_LIGHT_GREEN);
+	terminal_color = vga_entry_color(VGA_COLOR_BLACK, VGA_COLOR_LIGHT_GREEN); // brat terminal
 	terminal_buffer = (uint16_t*)0xB8000;
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
@@ -76,24 +76,28 @@ void terminal_initialize(void)
 		}
 	}
 }
-
+/* Set color of terminal */
 void terminal_setcolor(uint8_t color)
 {
 	terminal_color = color;
 }
 
+/* Set position of cursor */
 void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 {
 	const size_t index = y * VGA_WIDTH + x;
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
+/* Print character to terminal */
 void terminal_putchar(char c)
 {
 	if (c == '\n') { // Newline support
 		terminal_column = 0;
-		if (++terminal_row == VGA_HEIGHT)
-			terminal_row = 0;
+		if (++terminal_row == VGA_HEIGHT) {
+			terminal_scroll(); // Scroll if necessary
+			terminal_row = VGA_HEIGHT - 1; // Set to the last row after scrolling
+		}
 		return;
 	} else {
 		terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
@@ -105,6 +109,25 @@ void terminal_putchar(char c)
 	}
 }
 
+/* Scroll terminal */
+void terminal_scroll(void)
+{
+	for (size_t y = 1; y < VGA_HEIGHT; y++) {
+		for (size_t x = 0; x < VGA_WIDTH; x++) {
+			const size_t index = y * VGA_WIDTH + x; // Current index
+			const size_t prev_index = (y - 1) * VGA_WIDTH + x; // Previous index
+			terminal_buffer[prev_index] = terminal_buffer[index]; // Move current row to previous row
+		}
+	}
+	for (size_t x = 0; x < VGA_WIDTH; x++) {
+		const size_t index = (VGA_HEIGHT - 1) * VGA_WIDTH + x; // Index of last row
+		terminal_buffer[index] = vga_entry(' ', terminal_color);
+	}
+	terminal_row = VGA_HEIGHT - 1; // Set row to last row
+	terminal_column = 0; 
+}
+
+/* Write data to terminal */
 void terminal_write(const char* data, size_t size)
 {
 	for (size_t i = 0; i < size; i++)
